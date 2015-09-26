@@ -1,0 +1,270 @@
+---
+title: "Practical Machine Learning Prediction Assignment:-Predict Human Activity"
+author: "SanthoshShetty"
+date: "September 23, 2015"
+output: html_document
+---
+
+#Goal of the project is to predict the manner in which a participant did the weight lifting exercise 
+
+- Weight lifting exercises are performed in five different manners by six participants
+- five manners are known as classes A, B, C, D, E
+- Goal is to predict the classes based on the subject's measurements data 
+- Data set are based on the six participants using four wearable device
+- Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants
+
+#  Model Design Approach
+
+Target or response or class variable under consideration is a discrete variable with five values -A, B, C,D, E. Hence is a factor variable and hence this is a classification model. Additionally we are predicting class/outcome based on the labeled set of data. Hence this is a supervised machinie learning algorithm and Model would be a classification algorithm
+
+Metric considered for the algorithm is accuracy
+
+1. Goal -> Predict Class A or B or C or D or E  -Target Variable Classe
+2. Metric used would be accuracy.
+3. Data Selection  -Available Data set is medium and hence  60% training set 40% testing set
+4. Data Cleansing -summary data or calculated data are removed as raw data can capture required the input to predict. 
+5. Predictors or Feature Selection -Separate Section has the detail on features selection. Measurement variables of wearable devices are selected. Calculated or summary variables are not considered as raw data captures the required input to predict.
+6. Prediction Function -Separate section has the detail on building the prediction function.Various models are studies , cross validations are peformed on subset to training data , results compared and optimal model selected. 
+7. Model studies are
+- lda  linear discriminant analysis
+- qdq  quadraitic discriminant analysis
+- nmd  normal mixture discriminant analysis
+- nb   naive Bayes not selected as it assumes covariance for the predictor variables is zero
+- tree  tree of rpart
+- rf   random forest  
+8. qda and rf found to be optimal and predicted correcctly
+
+
+# Data Cleansing and Feature selection
+
+Only raw data will be used , summary data will be removed as summary can be generated based on raw data if required
+
+Selection of features would be based on four wearable devices as discussed above and recording of those measurements. all calculated or summary columns will not be considered.
+
+## Belt Related  
+
+- roll_belt,pitch_belt,yaw_belt,total_accel_belt
+- gyros_belt_x	gyros_belt_y	gyros_belt_z	
+- accel_belt_x	accel_belt_y  accel_belt_z	
+- magnet_belt_x	magnet_belt_y	magnet_belt_z 
+
+## arm related
+
+- pitch_arm	yaw_arm	total_accel_arm
+- gyros_arm_x	gyros_arm_y	gyros_arm_z	
+- accel_arm_x	accel_arm_y	accel_arm_z	
+- magnet_arm_x	magnet_arm_y	magnet_arm_z
+
+##  dumbbell 
+
+- roll_dumbbell	pitch_dumbbell	yaw_dumbbell, total_accel_dumbbell
+- gyros_dumbbell_x	gyros_dumbbell_y	gyros_dumbbell_z	
+- accel_dumbbell_x	accel_dumbbell_y	accel_dumbbell_z	
+- magnet_dumbbell_x	magnet_dumbbell_y	magnet_dumbbell_z
+
+##  Forearm
+
+- roll_forearm	pitch_forearm	yaw_forearm total_accel_forearm
+- gyros_forearm_x	gyros_forearm_y	gyros_forearm_z	
+- accel_forearm_x	accel_forearm_y	accel_forearm_z	
+- magnet_forearm_x	magnet_forearm_y	magnet_forearm_z
+
+
+
+
+```{r, echo=TRUE, cache=TRUE}
+require(caret)
+require(ggplot2);
+require(lattice)
+set.seed(1)   
+# Assumption both testing and traing data are downloaded into the project folder
+
+rawdata<-read.csv("pml-training.csv",header=TRUE)   #read training data
+
+# rawdata contains summary data  
+
+summarydata<-rawdata[rawdata$new_window=='yes',]
+
+rawdata<-rawdata[rawdata$new_window=='no',]   #remove summary data
+
+# features
+
+feature<-"roll_belt	pitch_belt	yaw_belt	total_accel_belt	gyros_belt_x	gyros_belt_y	gyros_belt_z	accel_belt_x	accel_belt_y	accel_belt_z	magnet_belt_x	magnet_belt_y	magnet_belt_z	roll_arm	pitch_arm	yaw_arm	total_accel_arm	gyros_arm_x	gyros_arm_y	gyros_arm_z	accel_arm_x	accel_arm_y	accel_arm_z	magnet_arm_x	magnet_arm_y	magnet_arm_z	roll_dumbbell	pitch_dumbbell	yaw_dumbbell	total_accel_dumbbell	gyros_dumbbell_x	gyros_dumbbell_y	gyros_dumbbell_z	accel_dumbbell_x	accel_dumbbell_y	accel_dumbbell_z	magnet_dumbbell_x	magnet_dumbbell_y	magnet_dumbbell_z	roll_forearm	pitch_forearm	yaw_forearm	total_accel_forearm	gyros_forearm_x	gyros_forearm_y	gyros_forearm_z	accel_forearm_x	accel_forearm_y	accel_forearm_z	magnet_forearm_x	magnet_forearm_y	magnet_forearm_z"
+
+feature <-unlist(strsplit(feature, "\t"))
+
+# Total Number of features are 52
+
+# outcome variable is classe
+
+cleandata<-rawdata[,c('classe',feature)]
+
+
+# create training and test sets
+inTrain <- createDataPartition(y=cleandata$classe,p=0.7, list=FALSE)
+training <- cleandata[inTrain,]
+testing <- cleandata[-inTrain,]
+
+predictdata<-read.csv("pml-testing.csv",header=TRUE)    #read testing data
+
+```
+
+##  Features analysis and selection
+
+Based on the original raw data had around 160 columns or variables -many of variables are summary data. Based on the four wearable devices and their measurement recording , exercise are classified into A, B, C, D, E
+
+Total measurements are 52 which are selected as predictor for classification
+
+On further anlaysis  some of the predictors are related to each and have a matix correlations
+##  Below models are cross validated with sub sample of traing data set and optimal model is selcted
+Below models are selected 
+- lda  linear discriminant analysis
+- qdq  quadraitic discriminant analysis
+- nmd  normal mixture discriminant analysis
+- nb   naive Bayes not selected as it assumes covariance for the predictor variables is zero
+- tree  tree of rpart
+- rf   random forest
+- gbm model
+
+
+```{r, echo=TRUE, cache=TRUE}
+# Model selected is quadratic discriminant analysis since 
+# Number of predictors are 52 and these variables have matrix corelations 
+
+insubtrain <- createDataPartition(y=training$classe,p=0.7, list=FALSE)
+subtrain <- training[insubtrain,]
+subtest <- training[-insubtrain,]
+
+# run the quadratic discriminant analysis on training data
+qda <- train(classe ~ .,data=subtrain,method="qda")
+# predict test outcomes using LDA model
+pred.qda <- predict(qda,subtest)
+# print results
+pred.qda[1:10]  # print only first 10 records for display purpose
+# Number of prediction false when data is true
+sum(!(pred.qda==subtest[,1]))   # This gives number of wrong prediction when it is true
+
+# Error rate
+errorRate<-sum(!(pred.qda==subtest[,1]))/nrow(subtest)
+
+errorRate
+
+# error rate found to be 0.099
+
+# using the same data , run lda on training data
+modlda <- train(classe ~ ., data=subtrain,method="lda")
+# predict test outcomes using naive Bayes model
+pred.lda <- predict(modlda,subtest)
+# print results
+#pred.lda
+# Number of prediction false when data is true
+sum(!(pred.lda==subtest[,1]))
+
+## error rate
+sum(!(pred.lda==subtest[,1]))/nrow(subtest)
+##error rate found to be 0.2935   Model rejected  as it assume linear relations
+
+# using the same data , run nmd normal mixture modeling  on training data
+
+
+require("mclust")
+modnmd<-MclustDA(subtrain[,-1],subtrain[,1],
+                 modelType="EDDA",modelNames="EEE")
+summary(modnmd)
+#Training error = 0.2926001   hence rejected
+# high error -rejected 
+
+
+
+
+
+# fit classification tree as a model
+modtree <- train(classe ~ .,method="rpart",data=subtrain)
+
+pred.modtree<-predict(modtree,newdata=subtest)
+
+# Number of prediction false when data is true
+sum(!(pred.modtree==subtest[,1]))
+
+sum(!(pred.modtree==subtest[,1]))/nrow(subtest)
+
+# Error rate found to be 0.5005  Hence rejected
+# apply random forest
+modrf <- train(classe~ .,data=subtrain,method="rf",prox=TRUE)
+
+# predict outcome for test data set using the random forest model
+pred.rf <- predict(modrf,subtest)
+# logic value for whether or not the rf algorithm predicted correctly
+validpred <- pred.rf==subtest$classe
+
+# Number of prediction false when data is true
+sum(!(pred.rf==subtest[,1]))
+
+sum(!(pred.rf==subtest[,1]))/nrow(subtest)
+
+# Error rate is 0.015  lowest one
+
+# tabulate results
+table(pred.rf,subtest$classe)
+
+# run the gbm model
+modgbm <- train(classe ~ ., method="gbm",data=subtrain,verbose=FALSE)
+
+pred.gbm <- predict(modgbm,subtest)
+sum(!(pred.gbm==subtest[,1]))   # predicted wrongly
+errorRate<-sum(!(pred.gbm==subtest[,1]))/nrow(subtest)
+sum(!(pred.gbm==subtest[,1]))/nrow(subtest)
+## error rate found 0.04
+
+# run the nnet
+modnnet <- train(classe ~ ., method="nnet",data=subtrain,trace=FALSE)
+
+pred.nnet <- predict(modnnet,subtest)
+sum(!(pred.nnet==subtest[,1]))   # predicted wrongly 174
+errorRate<-sum(!(pred.nnet==subtest[,1]))/nrow(subtest)
+sum(!(pred.nnet==subtest[,1]))/nrow(subtest)
+##error rate 0.04313337
+
+
+
+
+require("mclust")
+modnmd<-MclustDA(subtrain[,-1],subtrain[,1],
+                 modelType="EDDA",modelNames="EEE")
+summary(modnmd)
+
+# high error -rejected 
+# 
+
+#using KNN
+
+require(class)
+# trainset requires only predictor variables 
+# testset as well requires only predicor variables
+# class or target varibale is cl=subtrain[,1]
+modknn<-knn(train=subtrain[,-1],test=subtest[,-1], cl=subtrain[,1], k=5)
+sum(!(modknn==subtest[,1]))   # predicted wrongly
+errorRate<-sum(!(modknn==subtest[,1]))/nrow(subtest)
+sum(!(modknn==subtest[,1]))/nrow(subtest)
+# error rate 0.12   509/4034
+
+
+
+
+```
+
+# Prediction of test set based on three models
+## Based on the cross validation Three models are selected based on the least error rate
+- qdq quadratic discriminant analysis
+- rf random forest
+- gbm
+
+```{r, echo=TRUE}
+predict(modrf,predictdata[,feature])    # using rf
+predict(qda,predictdata[,feature])      # using qda
+predict(modgbm,predictdata[,feature])    # using gbm
+
+
+```
+
+
